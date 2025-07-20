@@ -2,6 +2,7 @@
 This is for the aft-ward sensesp unit installed in S/V Symphony, part of Dark Star LLC's fleet.
 
 It has these proposed measurement responsibilities:
+* [sensors.engineRoom.openFlame](https://signalk.org/specification/1.7.0/doc/vesselsBranch.html#vesselsregexpsensorsregexp)
 * [electrical.alternators.main.voltage](https://signalk.org/specification/1.7.0/doc/vesselsBranch.html#vesselsregexpelectricalalternatorsregexpvoltage)
 * [electrical.alternators.main.current](https://signalk.org/specification/1.7.0/doc/vesselsBranch.html#vesselsregexpelectricalalternatorsregexpcurrent) (via INA219 and an original brass shunt) 
 * [electrical.alternators.main.temperature](https://signalk.org/specification/1.7.0/doc/vesselsBranch.html#vesselsregexpelectricalalternatorsregexptemperature) (via DS18B20 "1-Wire" probe)

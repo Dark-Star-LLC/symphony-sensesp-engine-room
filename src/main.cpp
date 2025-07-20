@@ -12,6 +12,9 @@
 
 #include "sensesp.h"
 #include "sensesp_app_builder.h"
+#include "sensesp/sensors/digital_input.h"
+#include "sensesp/signalk/signalk_output.h"
+#include "sensesp/transforms/lambda_transform.h"
 
 using namespace sensesp;
 
@@ -32,6 +35,25 @@ void setup() {
   const String hostname = sensesp_app->get_hostname();
   auto ipAddress = MDNS.queryHost(hostname.c_str(), 1000);
   debugI("Hostname: %s, ipAddress=%s", hostname.c_str(), ipAddress.toString().c_str());
+
+  auto infraredFlameSensor = std::make_shared<DigitalInputChange>(
+    33, INPUT_PULLUP, CHANGE,
+      "/sensors/engineRoom/infraredFlame");
+
+  auto debugTransform = std::make_shared<LambdaTransform<boolean, boolean>>([](boolean input) {
+    debugD("digitalInputChange value=%s", input ? "true" : "false");
+    return input;
+  });
+
+  auto negate = std::make_shared<LambdaTransform<boolean, boolean>>([](boolean input) {
+    // LOW means flame detected, HIGH is normal
+    return !input;
+  });
+
+  auto flameSensorSkOut = new SKOutputBool("sensors.engineRoom.openFlame", "",
+      new SKMetadata("", "Engine Room Flame Detection"));
+
+  infraredFlameSensor->connect_to(debugTransform)->connect_to(negate)->connect_to(flameSensorSkOut);
 
   while (true) {
     loop();
