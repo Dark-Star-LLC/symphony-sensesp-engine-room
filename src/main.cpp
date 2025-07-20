@@ -15,6 +15,7 @@
 #include "sensesp/sensors/digital_input.h"
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/transforms/lambda_transform.h"
+#include "pin_status.h"
 
 using namespace sensesp;
 
@@ -36,6 +37,9 @@ void setup() {
   auto ipAddress = MDNS.queryHost(hostname.c_str(), 1000);
   debugI("Hostname: %s, ipAddress=%s", hostname.c_str(), ipAddress.toString().c_str());
 
+  makeStatusPageItemsForAnalogInputs({32, 25, 15});
+  makeStatusPageItemsForDigitalInputs({32, 33, 25, 15});
+
   auto infraredFlameSensor = std::make_shared<DigitalInputChange>(
     33, INPUT_PULLUP, CHANGE,
       "/sensors/engineRoom/infraredFlame");
@@ -54,6 +58,7 @@ void setup() {
       new SKMetadata("", "Engine Room Flame Detection"));
 
   infraredFlameSensor->connect_to(debugTransform)->connect_to(negate)->connect_to(flameSensorSkOut);
+
 
   while (true) {
     loop();
