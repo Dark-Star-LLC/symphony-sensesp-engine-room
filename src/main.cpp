@@ -16,8 +16,13 @@
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/transforms/lambda_transform.h"
 #include "pin_status.h"
+#include "DHTesp.h"
+#include "temperature.h"
 
 using namespace sensesp;
+
+DHTesp dht;
+const int dhtPin = 23;
 
 // The setup function performs one-time application initialization.
 void setup() {
@@ -59,10 +64,61 @@ void setup() {
 
   infraredFlameSensor->connect_to(debugTransform)->connect_to(negate)->connect_to(flameSensorSkOut);
 
+  pinMode(dhtPin, OUTPUT); // lib sends an initial write and then manages switching between read/write
+  dht.setup(dhtPin, DHTesp::DHT22);
+
+  auto tempAndHumiditySensor = new sensesp::RepeatSensor<TempAndHumidity>(20000, []() {
+  // Repeat interval is 20s because the underlying sensor read takes about 250ms!
+  // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
+  // Check if any reads failed; ideally we would exit early to try again instead of inline.
+    TempAndHumidity newValues = dht.getTempAndHumidity();
+    if (dht.getStatus() != 0) {
+      debugE("DHT22 error status: %s", dht.getStatusString());
+      newValues = dht.getTempAndHumidity();
+    }
+    return newValues;
+  });
+
+  auto dht22Status = new sensesp::RepeatSensor<String>(5000, []() {
+    return dht.getStatusString();
+  });
+
+  dht22Status->connect_to(new SKOutputString("sensors.engineRoom.dht22.status", "",
+            new SKMetadata("", "Engine Room DHT22 sensor status")));
+
+  auto debugTempAndHumidity = std::make_shared<LambdaTransform<TempAndHumidity, TempAndHumidity>>([](TempAndHumidity input) {
+    debugI("Temperature=%f, Humidity=%f, status=%s", input.temperature, input.humidity, dht.getStatusString());
+    return input;
+  });
+
+  tempAndHumiditySensor->connect_to(debugTempAndHumidity);
+
+
+  auto temperatureSkOut = new SKOutputFloat("environment.inside.engineRoom.temperature", "",
+      new SKMetadata("K", "Engine Room Temperature"));
+
+  auto relativeHumiditySkOut = new SKOutputFloat("environment.inside.engineRoom.relativeHumidity", "",
+      new SKMetadata("ratio", "Engine Room Relative Humidity"));
+
+  auto temperatureTransform = std::make_shared<LambdaTransform<TempAndHumidity, float>>([](TempAndHumidity input) {
+    return temperature::convertCtoK(input.temperature);
+  });
+
+  auto humidityTransform = std::make_shared<LambdaTransform<TempAndHumidity, float>>([](TempAndHumidity input) {
+    return input.humidity / 100.0;
+  });
+
+  debugTempAndHumidity->connect_to(temperatureTransform)->connect_to(temperatureSkOut);
+  debugTempAndHumidity->connect_to(humidityTransform)->connect_to(relativeHumiditySkOut);
 
   while (true) {
     loop();
   }
 }
+// ref: https://web.archive.org/web/20160119170853/http://epb.apogee.net/res/refcomf.asp
+// possible replacement content and image:
+// https://c03.apogee.net/mvc/home/hes/land/el?utilityname=peco&spc=cel&id=1347
+
+// https://www.researchgate.net/publication/259359809_Vehicular_Cabins%27_Thermal_Comfort_Zones_Fanger_and_Berkley_Modeling
 
 void loop() { event_loop()->tick(); }
